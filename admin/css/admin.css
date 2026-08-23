@@ -662,3 +662,22 @@ button { font-family: var(--font-body); }
 }
 .custom-date-cell-disabled { color: #d0d0d0; cursor: not-allowed; }
 .custom-date-cell-selected { background: var(--red) !important; color: var(--white) !important; }
+
+/* Secondary/fallback action — payment correction link on active
+   subscriptions. Deliberately understated: normal payment recording
+   happens automatically on approval, so this is only for edge cases. */
+.payment-adjust-link {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9c9ca0;
+  text-decoration: underline;
+  text-decoration-color: rgba(13,13,13,0.2);
+  text-underline-offset: 2px;
+  cursor: help;
+  transition: color 0.2s var(--ease);
+}
+@media (hover: hover) {
+  .payment-adjust-link:hover { color: var(--red); }
+}
