@@ -10,7 +10,6 @@ let customFrom = null;
 let customTo = null;
 
 let payDateField = null;
-let expDateField = null;
 
 async function init() {
   const adminUser = await requireAdmin();
@@ -20,7 +19,6 @@ async function init() {
 
   initAllCustomSelects();
   payDateField = initDateField('payDate');
-  expDateField = initDateField('expDate');
   wireRangeFilters();
   wirePaymentModal();
   wireExpenseModal();
@@ -407,7 +405,14 @@ function wireExpenseModal() {
   const overlay = document.getElementById('expenseModalOverlay');
   document.getElementById('openAddExpense').addEventListener('click', () => {
     document.getElementById('expenseForm').reset();
-    if (expDateField) expDateField.setDate(new Date());
+
+    // Expense date is always today — expenses are logged at the moment
+    // they happen, so there's no picker, just a locked display.
+    const today = new Date();
+    document.getElementById('expDate').value = toDateStr(today);
+    document.getElementById('expDateLockedText').textContent =
+      today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
   });
