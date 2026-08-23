@@ -39,24 +39,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const navAccountName = document.getElementById('navAccountName');
   const navLogoutBtn = document.getElementById('navLogoutBtn');
 
-  if (navLoginLink && navAccountMenu && typeof supabaseClient !== 'undefined') {
-    supabaseClient.auth.getUser().then(async ({ data }) => {
-      if (data && data.user) {
-        navLoginLink.style.display = 'none';
-        navAccountMenu.style.display = 'block';
+  async function refreshAccountState() {
+    if (!navLoginLink || !navAccountMenu || typeof supabaseClient === 'undefined') return;
 
-        // Try to show the client's first name instead of a generic "Account"
-        const { data: clientRow } = await supabaseClient
-          .from('clients')
-          .select('full_name')
-          .eq('id', data.user.id)
-          .maybeSingle();
-        if (clientRow && clientRow.full_name) {
-          navAccountName.textContent = clientRow.full_name.split(' ')[0];
-        }
+    const { data } = await supabaseClient.auth.getUser();
+    if (data && data.user) {
+      navLoginLink.style.display = 'none';
+      navAccountMenu.style.display = 'block';
+
+      // Try to show the client's first name instead of a generic "Account"
+      const { data: clientRow } = await supabaseClient
+        .from('clients')
+        .select('full_name')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      if (clientRow && clientRow.full_name) {
+        navAccountName.textContent = clientRow.full_name.split(' ')[0];
       }
-    });
+    } else {
+      // No active session (or it just ended) — make sure the UI reflects
+      // that, rather than leaving a stale "My Dashboard" state on screen.
+      navLoginLink.style.display = '';
+      navAccountMenu.style.display = 'none';
+    }
   }
+
+  refreshAccountState();
+
+  // If this page is restored from the browser's back/forward cache (e.g.
+  // the user logs out elsewhere, then hits Back), scripts don't re-run on
+  // their own — re-check the session so the nav doesn't show stale state.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) refreshAccountState();
+  });
 
   if (navAccountBtn && navAccountDropdown) {
     navAccountBtn.addEventListener('click', (e) => {
