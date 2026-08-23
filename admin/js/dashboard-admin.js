@@ -20,7 +20,7 @@ async function init() {
 }
 
 async function loadSummaryCards() {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateStr(new Date());
 
   const [activeSubs, pendingSubs, todayBookings, upcomingBookings] = await Promise.all([
     supabaseClient.from('subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
@@ -38,7 +38,7 @@ async function loadSummaryCards() {
 }
 
 async function loadTodayBookings() {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateStr(new Date());
 
   const { data, error } = await supabaseClient
     .from('bookings')
@@ -197,18 +197,54 @@ async function loadPendingRequests() {
 
 async function approveSubscription(id, btnEl) {
   btnEl.disabled = true;
+  btnEl.textContent = 'Approving…';
+
+  // Get the plan price so we can record the upfront payment the client
+  // already made (their payment happens before approval in this business's
+  // workflow, so Approve also logs the payment in one step).
+  const { data: sub, error: subError } = await supabaseClient
+    .from('subscriptions')
+    .select('plan_id, plans(price)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (subError || !sub) {
+    showToast('Failed to load plan details: ' + (subError?.message || 'not found'), 'error');
+    btnEl.disabled = false;
+    btnEl.textContent = 'Approve';
+    return;
+  }
+
   const { error } = await supabaseClient
     .from('subscriptions')
-    .update({ status: 'active', start_date: new Date().toISOString().split('T')[0] })
+    .update({ status: 'active', start_date: toLocalDateStr(new Date()) })
     .eq('id', id);
 
   if (error) {
     showToast('Failed to approve: ' + error.message, 'error');
     btnEl.disabled = false;
+    btnEl.textContent = 'Approve';
     return;
   }
 
-  showToast('Subscription approved — now active.');
+  const planPrice = sub.plans?.price ? Number(sub.plans.price) : 0;
+  if (planPrice > 0) {
+    const { error: paymentError } = await supabaseClient.from('payments').insert({
+      subscription_id: id,
+      amount: planPrice,
+      payment_method: 'cash',
+      payment_status: 'paid',
+      payment_date: toLocalDateStr(new Date()),
+      notes: 'Recorded automatically on plan approval (paid upfront).',
+    });
+    if (paymentError) {
+      showToast('Approved, but failed to record payment: ' + paymentError.message, 'error');
+      await Promise.all([loadSummaryCards(), loadPendingRequests()]);
+      return;
+    }
+  }
+
+  showToast('Approved and payment recorded — now active.');
   await Promise.all([loadSummaryCards(), loadPendingRequests()]);
 }
 

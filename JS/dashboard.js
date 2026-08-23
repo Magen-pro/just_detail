@@ -6,10 +6,100 @@
 let currentUser = null;
 let currentClientRow = null;
 let currentSubscriptions = [];
+let visitSelectedDate = null;
+let visitCalendarViewDate = new Date();
+
+// ---------------- Custom dropdown helpers (mirrors booking.js) ----------------
+
+/**
+ * Flip the dropdown list to open upward instead of downward if there isn't
+ * enough room below it — prevents the list from being cut off or forcing
+ * the whole modal to grow awkwardly near the bottom of the viewport.
+ */
+function positionDropdown(wrap, trigger, list) {
+  list.classList.remove('drop-up');
+  const triggerRect = trigger.getBoundingClientRect();
+  // Measure the actual rendered height where possible (more accurate for
+  // taller popovers like the calendar), falling back to the dropdown-list
+  // max-height assumption for simple option lists.
+  const listHeight = (list.offsetHeight || Math.min(list.scrollHeight, 240)) + 10;
+  const spaceBelow = window.innerHeight - triggerRect.bottom;
+  const spaceAbove = triggerRect.top;
+
+  if (spaceBelow < listHeight && spaceAbove > spaceBelow) {
+    list.classList.add('drop-up');
+  }
+}
+
+function initCustomSelect(wrap) {
+  const trigger = wrap.querySelector('.custom-select-trigger');
+  const list = wrap.querySelector('.custom-select-list');
+  const valueEl = wrap.querySelector('.custom-select-value');
+  const targetSelect = document.getElementById(wrap.dataset.target);
+
+  function closeThis() {
+    wrap.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  trigger.addEventListener('click', () => {
+    document.querySelectorAll('.custom-select.open').forEach(w => { if (w !== wrap) w.classList.remove('open'); });
+    const isOpen = wrap.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) {
+      positionDropdown(wrap, trigger, list);
+      const selected = list.querySelector('li[aria-selected="true"]') || list.querySelector('li');
+      if (selected) selected.focus();
+    }
+  });
+
+  function selectOption(li) {
+    list.querySelectorAll('li').forEach(o => o.setAttribute('aria-selected', 'false'));
+    li.setAttribute('aria-selected', 'true');
+    valueEl.textContent = li.textContent;
+    valueEl.classList.remove('is-placeholder');
+    targetSelect.value = li.dataset.value;
+    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    closeThis();
+    trigger.focus();
+  }
+
+  function wireOptions() {
+    const options = Array.from(list.querySelectorAll('li'));
+    options.forEach((li, idx) => {
+      li.setAttribute('tabindex', '-1');
+      li.onclick = () => selectOption(li);
+      li.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectOption(li); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); (options[idx + 1] || options[0]).focus(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); (options[idx - 1] || options[options.length - 1]).focus(); }
+        else if (e.key === 'Escape') { closeThis(); trigger.focus(); }
+      };
+    });
+  }
+  wireOptions();
+  wrap._rewireOptions = wireOptions; // exposed so dynamically-populated lists can re-wire
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-select')) closeThis();
+  });
+}
+
+function populateCustomSelectList(wrap, items) {
+  // items: [{ value, label }]
+  const list = wrap.querySelector('.custom-select-list');
+  list.innerHTML = items.map(i => `<li role="option" data-value="${i.value}">${i.label}</li>`).join('');
+  const valueEl = wrap.querySelector('.custom-select-value');
+  valueEl.textContent = valueEl.dataset.placeholder;
+  valueEl.classList.add('is-placeholder');
+  if (wrap._rewireOptions) wrap._rewireOptions();
+}
 
 async function init() {
   currentUser = await requireAuth();
   if (!currentUser) return; // requireAuth already redirects to login
+
+  document.querySelectorAll('.custom-select').forEach(initCustomSelect);
 
   document.getElementById('logoutBtn').addEventListener('click', signOutClient);
 
@@ -64,9 +154,10 @@ async function showEnrollPanel(planId) {
     `${plan.vehicle_segment === 'suv' ? 'SUV / MPV / Large SUV' : 'Sedan / Hatch / Compact SUV'} · ₹${Number(plan.price).toLocaleString('en-IN')} · ${plan.total_regular_washes} washes`;
 
   const freqSelect = document.getElementById('enFrequency');
-  freqSelect.innerHTML = plan.frequency_options.map(f =>
-    `<option value="${f}">${f === 'biweekly' ? 'Bi-weekly' : 'Monthly'}</option>`
-  ).join('');
+  const freqWrap = document.getElementById('enFrequencyCustom');
+  populateCustomSelectList(freqWrap, plan.frequency_options.map(f => ({
+    value: f, label: f === 'biweekly' ? 'Bi-weekly' : 'Monthly'
+  })));
   // Hide the frequency choice entirely if the plan only offers one option
   document.getElementById('enFrequencyRow').style.display = plan.frequency_options.length > 1 ? 'flex' : 'none';
 
@@ -153,8 +244,9 @@ function renderSubscriptions() {
   container.innerHTML = currentSubscriptions.map(sub => {
     const status = statusLabel(sub.status);
     const segmentLabel = sub.vehicle_segment === 'suv' ? 'SUV / MPV / Large SUV' : 'Sedan / Hatch / Compact SUV';
-    const canBookVisit = sub.status === 'active' && sub.washes_remaining > 0;
     const bookings = (sub.bookings || []).slice().sort((a, b) => new Date(b.requested_date) - new Date(a.requested_date));
+    const hasOpenBooking = bookings.some(b => b.status === 'pending' || b.status === 'confirmed' || b.status === 'rescheduled_by_admin');
+    const canBookVisit = sub.status === 'active' && sub.washes_remaining > 0 && !hasOpenBooking;
 
     return `
       <div class="sub-card">
@@ -186,6 +278,7 @@ function renderSubscriptions() {
         `}
 
         ${canBookVisit ? `<button class="btn btn-primary btn-block" onclick="openVisitModal('${sub.id}')">Request next visit</button>` : ''}
+        ${sub.status === 'active' && hasOpenBooking ? `<p class="sub-open-booking-note">You already have a visit request in progress — you can request the next one once it's completed.</p>` : ''}
 
         ${bookings.length > 0 ? `
           <div class="sub-bookings">
@@ -224,6 +317,13 @@ function formatVisitDate(dateStr) {
 }
 
 // ---------------- Visit request modal ----------------
+function toLocalDateStr(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function openVisitModal(subscriptionId) {
   document.getElementById('visitSubscriptionId').value = subscriptionId;
   document.getElementById('visitForm').reset();
@@ -231,17 +331,118 @@ function openVisitModal(subscriptionId) {
   document.getElementById('visitModalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 
-  const dateInput = document.getElementById('visitDate');
-  const today = new Date().toISOString().split('T')[0];
-  dateInput.setAttribute('min', today);
+  // Reset the date field back to its closed, unselected state
+  visitSelectedDate = null;
+  visitCalendarViewDate = new Date();
+  document.getElementById('visitDate').value = '';
+  document.getElementById('visitDateField').classList.remove('open');
+  const dateValueEl = document.getElementById('visitDateValueText');
+  dateValueEl.textContent = 'Select a date';
+  dateValueEl.classList.add('is-placeholder');
+  renderVisitCalendar();
+
+  // Reset the time dropdown's visible state
+  const timeWrap = document.getElementById('visitTimeCustom');
+  const timeValueEl = timeWrap.querySelector('.custom-select-value');
+  timeValueEl.textContent = timeValueEl.dataset.placeholder;
+  timeValueEl.classList.add('is-placeholder');
+  timeWrap.querySelectorAll('li').forEach(li => li.setAttribute('aria-selected', 'false'));
+}
+
+function toggleVisitDatePicker() {
+  const field = document.getElementById('visitDateField');
+  const trigger = document.getElementById('visitDateTrigger');
+  const picker = document.getElementById('visitDatePicker');
+  const isOpen = field.classList.contains('open');
+
+  if (!isOpen) {
+    positionDropdown(field, trigger, picker);
+    field.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+  } else {
+    field.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function closeVisitDatePicker() {
+  document.getElementById('visitDateField').classList.remove('open');
+  document.getElementById('visitDateTrigger').setAttribute('aria-expanded', 'false');
+}
+
+function renderVisitCalendar() {
+  const grid = document.getElementById('visitDateGrid');
+  const label = document.getElementById('visitDateMonthLabel');
+  const year = visitCalendarViewDate.getFullYear();
+  const month = visitCalendarViewDate.getMonth();
+
+  label.textContent = visitCalendarViewDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  grid.innerHTML = '';
+  for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('span'));
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cellDate = new Date(year, month, d);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = d;
+    btn.className = 'custom-date-cell';
+    if (cellDate < today) {
+      btn.disabled = true;
+      btn.classList.add('custom-date-cell-disabled');
+    } else {
+      btn.addEventListener('click', () => selectVisitDate(cellDate, btn));
+    }
+    if (visitSelectedDate && cellDate.toDateString() === visitSelectedDate.toDateString()) {
+      btn.classList.add('custom-date-cell-selected');
+    }
+    grid.appendChild(btn);
+  }
+}
+
+function selectVisitDate(date, btnEl) {
+  visitSelectedDate = date;
+  document.getElementById('visitDate').value = toLocalDateStr(date);
+  document.querySelectorAll('#visitDateGrid .custom-date-cell').forEach(c => c.classList.remove('custom-date-cell-selected'));
+  btnEl.classList.add('custom-date-cell-selected');
+
+  const dateValueEl = document.getElementById('visitDateValueText');
+  dateValueEl.textContent = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  dateValueEl.classList.remove('is-placeholder');
+
+  closeVisitDatePicker();
 }
 
 function closeVisitModal() {
   document.getElementById('visitModalOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  closeVisitDatePicker();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('visitDateTrigger').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleVisitDatePicker();
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#visitDateField')) closeVisitDatePicker();
+  });
+
+  document.getElementById('visitDatePrev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    visitCalendarViewDate.setMonth(visitCalendarViewDate.getMonth() - 1);
+    renderVisitCalendar();
+  });
+  document.getElementById('visitDateNext').addEventListener('click', (e) => {
+    e.stopPropagation();
+    visitCalendarViewDate.setMonth(visitCalendarViewDate.getMonth() + 1);
+    renderVisitCalendar();
+  });
+
   init();
 
   document.getElementById('visitModalClose').addEventListener('click', closeVisitModal);

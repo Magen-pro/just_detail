@@ -34,7 +34,7 @@ async function init() {
 async function loadCustomers() {
   const { data, error } = await supabaseClient
     .from('subscriptions')
-    .select('*, clients(full_name, phone, email), plans(tier_name)')
+    .select('*, clients(full_name, phone, email), plans(tier_name, price), payments(amount)')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -68,15 +68,29 @@ function renderCustomersTable(searchTerm) {
   tableEl.style.display = 'table';
   emptyEl.style.display = 'none';
 
-  tbody.innerHTML = filtered.map(sub => `
-    <tr data-id="${sub.id}">
-      <td>${sub.clients?.full_name || '—'}</td>
-      <td>${sub.vehicle_model || '—'}</td>
-      <td>${sub.plans?.tier_name || '—'}</td>
-      <td>${sub.status === 'active' ? sub.washes_remaining : '—'}</td>
-      <td>${badgeHtml(sub.status)}</td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = filtered.map(sub => {
+    const planPrice = sub.plans?.price ? Number(sub.plans.price) : 0;
+    const paidTotal = (sub.payments || []).reduce((acc, p) => acc + Number(p.amount), 0);
+    let paymentBadge;
+    if (paidTotal <= 0) {
+      paymentBadge = '<span class="badge badge-pending">Unpaid</span>';
+    } else if (planPrice && paidTotal < planPrice) {
+      paymentBadge = '<span class="badge badge-pending">Partial</span>';
+    } else {
+      paymentBadge = '<span class="badge badge-active">Paid</span>';
+    }
+
+    return `
+      <tr data-id="${sub.id}">
+        <td>${sub.clients?.full_name || '—'}</td>
+        <td>${sub.vehicle_model || '—'}</td>
+        <td>${sub.plans?.tier_name || '—'}</td>
+        <td>${sub.status === 'active' ? sub.washes_remaining : '—'}</td>
+        <td>${badgeHtml(sub.status)}</td>
+        <td>${paymentBadge}</td>
+      </tr>
+    `;
+  }).join('');
 
   tbody.querySelectorAll('tr').forEach(row => {
     row.addEventListener('click', () => openCustomerDetail(row.dataset.id));
@@ -92,7 +106,7 @@ function showListView() {
 async function openCustomerDetail(subId) {
   const { data: sub, error } = await supabaseClient
     .from('subscriptions')
-    .select('*, clients(full_name, phone, email), plans(tier_name, total_regular_washes)')
+    .select('*, clients(full_name, phone, email), plans(tier_name, total_regular_washes, price)')
     .eq('id', subId)
     .maybeSingle();
 
@@ -121,8 +135,28 @@ async function openCustomerDetail(subId) {
   document.getElementById('dCompletedWashes').textContent = sub.washes_used;
   document.getElementById('dRemainingWashes').textContent = sub.washes_remaining;
 
+  await renderPaymentStatus(sub);
   renderCustomerActions(sub);
   await loadCustomerHistory(subId);
+}
+
+async function renderPaymentStatus(sub) {
+  const planPrice = sub.plans?.price ? Number(sub.plans.price) : 0;
+  const { data: payments } = await supabaseClient
+    .from('payments')
+    .select('amount')
+    .eq('subscription_id', sub.id);
+
+  const paidTotal = (payments || []).reduce((acc, p) => acc + Number(p.amount), 0);
+  const el = document.getElementById('dPaymentStatus');
+
+  if (paidTotal <= 0) {
+    el.innerHTML = '<span class="badge badge-pending">Unpaid</span>';
+  } else if (planPrice && paidTotal < planPrice) {
+    el.innerHTML = `<span class="badge badge-pending">Partial — ₹${paidTotal.toLocaleString('en-IN')} of ₹${planPrice.toLocaleString('en-IN')}</span>`;
+  } else {
+    el.innerHTML = `<span class="badge badge-active">Paid — ₹${paidTotal.toLocaleString('en-IN')}</span>`;
+  }
 }
 
 function renderCustomerActions(sub) {
@@ -135,10 +169,27 @@ function renderCustomerActions(sub) {
       <button class="btn btn-danger btn-sm" id="detailReject">Reject</button>
     `;
     document.getElementById('detailApprove').addEventListener('click', async () => {
+      const approveBtn = document.getElementById('detailApprove');
+      approveBtn.disabled = true;
+      approveBtn.textContent = 'Approving…';
+
       await supabaseClient.from('subscriptions')
-        .update({ status: 'active', start_date: new Date().toISOString().split('T')[0] })
+        .update({ status: 'active', start_date: toLocalDateStr(new Date()) })
         .eq('id', sub.id);
-      showToast('Approved — subscription is now active.');
+
+      const planPrice = sub.plans?.price ? Number(sub.plans.price) : 0;
+      if (planPrice > 0) {
+        await supabaseClient.from('payments').insert({
+          subscription_id: sub.id,
+          amount: planPrice,
+          payment_method: 'cash',
+          payment_status: 'paid',
+          payment_date: toLocalDateStr(new Date()),
+          notes: 'Recorded automatically on plan approval (paid upfront).',
+        });
+      }
+
+      showToast('Approved and payment recorded — now active.');
       await loadCustomers();
       openCustomerDetail(sub.id);
     });
@@ -150,7 +201,10 @@ function renderCustomerActions(sub) {
       showListView();
     });
   } else if (sub.status === 'active') {
-    actionsEl.innerHTML = `<button class="btn btn-outline btn-sm" id="detailCancel">Cancel Subscription</button>`;
+    actionsEl.innerHTML = `
+      <a href="finances.html?pay_subscription=${sub.id}" class="btn btn-outline btn-sm">Adjust / Add Payment</a>
+      <button class="btn btn-outline btn-sm" id="detailCancel">Cancel Subscription</button>
+    `;
     document.getElementById('detailCancel').addEventListener('click', async () => {
       if (!confirm('Cancel this customer\'s active subscription?')) return;
       await supabaseClient.from('subscriptions').update({ status: 'cancelled' }).eq('id', sub.id);

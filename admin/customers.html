@@ -6,7 +6,7 @@
 <title>Customers — Admin — Just Detail</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
@@ -31,7 +31,7 @@
           <div class="admin-table-wrap">
             <table class="admin-table admin-table-clickable" id="customersTable">
               <thead>
-                <tr><th>Name</th><th>Vehicle</th><th>Plan</th><th>Washes Left</th><th>Status</th></tr>
+                <tr><th>Name</th><th>Vehicle</th><th>Plan</th><th>Washes Left</th><th>Status</th><th>Payment</th></tr>
               </thead>
               <tbody id="customersBody"></tbody>
             </table>
@@ -73,6 +73,7 @@
           <div class="admin-form-section">
             <div class="detail-row"><span>Plan</span><span id="dPlanName">—</span></div>
             <div class="detail-row"><span>Status</span><span id="dStatus">—</span></div>
+            <div class="detail-row"><span>Payment</span><span id="dPaymentStatus">—</span></div>
             <div class="detail-row"><span>Start Date</span><span id="dStartDate">—</span></div>
             <div class="detail-row"><span>Total Washes</span><span id="dTotalWashes">—</span></div>
             <div class="detail-row"><span>Completed</span><span id="dCompletedWashes">—</span></div>
