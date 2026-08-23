@@ -202,8 +202,12 @@ function renderCustomerActions(sub) {
     });
   } else if (sub.status === 'active') {
     actionsEl.innerHTML = `
-      <a href="finances.html?pay_subscription=${sub.id}" class="btn btn-outline btn-sm">Adjust / Add Payment</a>
       <button class="btn btn-outline btn-sm" id="detailCancel">Cancel Subscription</button>
+      <a href="finances.html?pay_subscription=${sub.id}"
+         class="payment-adjust-link"
+         title="Payment is recorded automatically when you approve an enrollment. Use this only to correct a mistake or add a top-up payment.">
+        Need to correct or add a payment?
+      </a>
     `;
     document.getElementById('detailCancel').addEventListener('click', async () => {
       if (!confirm('Cancel this customer\'s active subscription?')) return;
