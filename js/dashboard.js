@@ -173,8 +173,20 @@ async function showEnrollPanel(planId) {
   populateCustomSelectList(freqWrap, plan.frequency_options.map(f => ({
     value: f, label: f === 'biweekly' ? 'Bi-weekly' : 'Monthly'
   })));
-  // Hide the frequency choice entirely if the plan only offers one option
-  document.getElementById('enFrequencyRow').style.display = plan.frequency_options.length > 1 ? 'flex' : 'none';
+
+  if (plan.frequency_options.length > 1) {
+    // Client picks — show the row, leave it unselected until they choose.
+    document.getElementById('enFrequencyRow').style.display = 'flex';
+  } else {
+    // Only one option (e.g. VIP is bi-weekly only) — hide the picker since
+    // there's nothing to choose, but the hidden <select> is still a
+    // required form field, so it must be auto-selected or the browser
+    // blocks submission on a field the user can never see or fill in.
+    document.getElementById('enFrequencyRow').style.display = 'none';
+    const only = plan.frequency_options[0];
+    const onlyLi = freqWrap.querySelector(`li[data-value="${only}"]`);
+    if (onlyLi) onlyLi.click();
+  }
 
   document.getElementById('enrollCancel').addEventListener('click', () => {
     window.location.href = 'dashboard.html';
