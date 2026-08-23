@@ -86,21 +86,12 @@ function initCustomSelect(wrap) {
 }
 
 function populateCustomSelectList(wrap, items) {
+  // items: [{ value, label }]
   const list = wrap.querySelector('.custom-select-list');
-  const targetSelect = document.getElementById(wrap.dataset.target);
-
-  list.innerHTML = items
-    .map(i => `<li role="option" data-value="${i.value}">${i.label}</li>`)
-    .join('');
-
-  targetSelect.innerHTML = items
-    .map(i => `<option value="${i.value}">${i.label}</option>`)
-    .join('');
-
+  list.innerHTML = items.map(i => `<li role="option" data-value="${i.value}">${i.label}</li>`).join('');
   const valueEl = wrap.querySelector('.custom-select-value');
   valueEl.textContent = valueEl.dataset.placeholder;
   valueEl.classList.add('is-placeholder');
-
   if (wrap._rewireOptions) wrap._rewireOptions();
 }
 
@@ -110,7 +101,11 @@ async function init() {
 
   document.querySelectorAll('.custom-select').forEach(initCustomSelect);
 
-  document.getElementById('logoutBtn').addEventListener('click', signOutClient);
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (!logoutBtn._boundLogout) {
+    logoutBtn.addEventListener('click', signOutClient);
+    logoutBtn._boundLogout = true;
+  }
 
   // Load (or create-on-first-login) the client's profile row
   const { data: clientRow, error: clientErr } = await supabaseClient
@@ -453,6 +448,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   init();
+
+  // If the browser restores this page from its back/forward cache (bfcache)
+  // — e.g. the user navigates away and hits Back — the page reappears
+  // exactly as it was in memory without re-running our scripts, showing
+  // stale data (like "no plan enrolled" after they actually enrolled).
+  // event.persisted === true tells us this happened, so we re-fetch.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      init();
+    }
+  });
 
   document.getElementById('visitModalClose').addEventListener('click', closeVisitModal);
   document.getElementById('visitModalOverlay').addEventListener('click', (e) => {
