@@ -407,7 +407,10 @@ function renderVisitCalendar() {
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  // Earliest bookable day is TOMORROW — same-day requests risk landing on
+  // a slot that's already passed, so today is disabled along with the past.
+  const earliestSelectable = new Date(); earliestSelectable.setHours(0, 0, 0, 0);
+  earliestSelectable.setDate(earliestSelectable.getDate() + 1);
 
   grid.innerHTML = '';
   for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('span'));
@@ -418,7 +421,7 @@ function renderVisitCalendar() {
     btn.type = 'button';
     btn.textContent = d;
     btn.className = 'custom-date-cell';
-    if (cellDate < today) {
+    if (cellDate < earliestSelectable) {
       btn.disabled = true;
       btn.classList.add('custom-date-cell-disabled');
     } else {
