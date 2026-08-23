@@ -86,12 +86,21 @@ function initCustomSelect(wrap) {
 }
 
 function populateCustomSelectList(wrap, items) {
-  // items: [{ value, label }]
   const list = wrap.querySelector('.custom-select-list');
-  list.innerHTML = items.map(i => `<li role="option" data-value="${i.value}">${i.label}</li>`).join('');
+  const targetSelect = document.getElementById(wrap.dataset.target);
+
+  list.innerHTML = items
+    .map(i => `<li role="option" data-value="${i.value}">${i.label}</li>`)
+    .join('');
+
+  targetSelect.innerHTML = items
+    .map(i => `<option value="${i.value}">${i.label}</option>`)
+    .join('');
+
   const valueEl = wrap.querySelector('.custom-select-value');
   valueEl.textContent = valueEl.dataset.placeholder;
   valueEl.classList.add('is-placeholder');
+
   if (wrap._rewireOptions) wrap._rewireOptions();
 }
 
