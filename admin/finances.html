@@ -288,23 +288,11 @@
         <input type="number" id="expAmount" min="1" step="1" required>
       </div>
       <div class="admin-form-row">
-        <label for="expDateTrigger">Date <span class="req">*</span></label>
-        <div class="date-field" id="expDateField">
-          <button type="button" class="date-field-trigger" id="expDateTrigger" aria-haspopup="dialog" aria-expanded="false">
-            <svg viewBox="0 0 20 20" fill="none" width="17" height="17"><rect x="3" y="4.5" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 8h14M7 3v3M13 3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <span class="date-field-value is-placeholder" id="expDateValueText">Select a date</span>
-          </button>
-          <div class="custom-date-picker" id="expDatePicker">
-            <div class="custom-date-picker-header">
-              <button type="button" class="custom-date-nav" id="expDatePrev" aria-label="Previous month">‹</button>
-              <span id="expDateMonthLabel"></span>
-              <button type="button" class="custom-date-nav" id="expDateNext" aria-label="Next month">›</button>
-            </div>
-            <div class="custom-date-grid-labels">
-              <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
-            </div>
-            <div class="custom-date-grid" id="expDateGrid"></div>
-          </div>
+        <label for="expDate">Date <span class="req">*</span></label>
+        <div class="date-field-locked" id="expDateLocked">
+          <svg viewBox="0 0 20 20" fill="none" width="17" height="17"><rect x="3" y="4.5" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 8h14M7 3v3M13 3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span id="expDateLockedText">—</span>
+          <span class="date-field-locked-note">Today</span>
         </div>
         <input type="hidden" id="expDate" required>
       </div>
