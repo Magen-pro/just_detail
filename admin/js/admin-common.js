@@ -322,6 +322,17 @@ function initAllCustomSelects(root) {
 function populateCustomSelectList(wrap, items) {
   const list = wrap.querySelector('.custom-select-list');
   list.innerHTML = items.map(i => `<li role="option" data-value="${i.value}">${i.label}</li>`).join('');
+
+  // The hidden native <select> must also get matching <option> elements —
+  // otherwise setting its .value to a selected item silently fails (no
+  // matching option = value stays empty), which can break native "required"
+  // validation even though the visible UI looks correctly selected.
+  const targetSelect = document.getElementById(wrap.dataset.target);
+  if (targetSelect) {
+    targetSelect.innerHTML = items.map(i => `<option value="${i.value}">${i.label}</option>`).join('');
+    targetSelect.value = '';
+  }
+
   const valueEl = wrap.querySelector('.custom-select-value');
   valueEl.textContent = valueEl.dataset.placeholder;
   valueEl.classList.add('is-placeholder');
