@@ -1684,15 +1684,17 @@ h1, h2, h3, h4 {
   .nav-account-btn { display: none; }
   .nav-account-dropdown {
     position: static;
+    background: none;
     box-shadow: none;
     border: none;
+    border-radius: 0;
     padding: 0;
     opacity: 1;
     visibility: visible;
     transform: none;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
   .nav-account-dropdown a,
   .nav-account-dropdown button {
