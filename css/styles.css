@@ -1582,12 +1582,15 @@ h1, h2, h3, h4 {
   background: linear-gradient(0deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 45%);
   transition: background 0.4s var(--ease);
 }
+.gallery-tile-compare::before {
+  display: none;
+}
 @media (hover: hover) {
-  .gallery-tile:hover {
+  .gallery-tile:not(.gallery-tile-compare):hover {
     transform: translateY(-4px) scale(1.01);
     box-shadow: 0 16px 40px rgba(0,0,0,0.2);
   }
-  .gallery-tile:hover::before { background: rgba(13,13,13,0.4); }
+  .gallery-tile:not(.gallery-tile-compare):hover::before { background: rgba(13,13,13,0.4); }
 }
 .gallery-tile-overlay {
   position: absolute;
