@@ -211,9 +211,15 @@ h1, h2, h3, h4 {
   width: 36px; height: 28px;
   display: flex; flex-direction: column; justify-content: space-between;
   padding: 4px 0;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   outline: none;
+  touch-action: manipulation;
 }
+.nav-toggle:focus { outline: none; }
+.nav-toggle::-moz-focus-inner { border: 0; }
 .nav-toggle span {
   display: block; height: 2px; width: 100%;
   background: var(--black); border-radius: 2px;
