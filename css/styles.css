@@ -1696,10 +1696,20 @@ h1, h2, h3, h4 {
   }
   .nav-account-dropdown a,
   .nav-account-dropdown button {
+    display: block;
+    width: 100%;
     padding: 10px 0;
+    margin: 0;
+    font-family: var(--font-body);
     font-size: 0.92rem;
     font-weight: 600;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--black);
+    cursor: pointer;
   }
+  .nav-account-dropdown button#navLogoutBtn { color: var(--red); }
   .nav-account-dropdown a:hover,
   .nav-account-dropdown button:hover { background: none; }
 }
