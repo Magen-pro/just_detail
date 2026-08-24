@@ -15,6 +15,7 @@ function renderAdminSidebar(activePage, adminEmail) {
     <a href="${item.href}" class="${item.href === activePage ? 'active' : ''}">
       ${item.icon}
       <span>${item.label}</span>
+      ${item.href === 'bookings.html' ? '<span class="nav-badge" id="bookingsNavBadge" style="display:none;"></span>' : ''}
     </a>
   `).join('');
 
@@ -49,6 +50,31 @@ function initAdminShell(activePage, adminUser) {
   const sidebar = document.getElementById('adminSidebar');
   if (menuToggle && sidebar) {
     menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+  }
+
+  refreshBookingsNavBadge();
+}
+
+// Shows a count on the sidebar's "Bookings" link for unpaid one-time
+// bookings — the same "needs attention" definition used on the dashboard's
+// "New One-Time Bookings" panel, so the badge and panel always agree.
+async function refreshBookingsNavBadge() {
+  const badge = document.getElementById('bookingsNavBadge');
+  if (!badge || typeof supabaseClient === 'undefined') return;
+
+  const { data, error } = await supabaseClient
+    .from('one_time_bookings')
+    .select('id, payments(id)');
+
+  if (error || !data) return;
+
+  const unpaidCount = data.filter(b => !b.payments || b.payments.length === 0).length;
+
+  if (unpaidCount > 0) {
+    badge.textContent = unpaidCount > 99 ? '99+' : String(unpaidCount);
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
   }
 }
 
