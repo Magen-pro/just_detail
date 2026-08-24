@@ -93,4 +93,45 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.reload();
     });
   }
+
+  // Before/After gallery slider — drag only starts from the center handle,
+  // so it never fights with normal page scrolling on mobile.
+  const baTile = document.getElementById('beforeAfterTile');
+  const baHandle = document.getElementById('baHandle');
+  const baBeforeImage = document.getElementById('baBeforeImage');
+
+  if (baTile && baHandle && baBeforeImage) {
+    let dragging = false;
+
+    function setSplit(clientX) {
+      const rect = baTile.getBoundingClientRect();
+      let percent = ((clientX - rect.left) / rect.width) * 100;
+      percent = Math.max(0, Math.min(100, percent));
+      baBeforeImage.style.clipPath = `inset(0 ${100 - percent}% 0 0)`;
+      baHandle.style.left = `${percent}%`;
+    }
+
+    function startDrag() {
+      dragging = true;
+      baTile.classList.add('ba-dragging');
+    }
+    function moveDrag(e) {
+      if (!dragging) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      setSplit(clientX);
+    }
+    function endDrag() {
+      dragging = false;
+      baTile.classList.remove('ba-dragging');
+    }
+
+    baHandle.addEventListener('mousedown', startDrag);
+    baHandle.addEventListener('touchstart', startDrag, { passive: true });
+
+    document.addEventListener('mousemove', moveDrag);
+    document.addEventListener('touchmove', moveDrag, { passive: true });
+
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('touchend', endDrag);
+  }
 });
