@@ -42,6 +42,23 @@
 
       <div class="admin-panel">
         <div class="admin-panel-header">
+          <h2>Pending Maintenance Requests</h2>
+        </div>
+        <div class="admin-panel-body">
+          <div class="admin-table-wrap">
+            <table class="admin-table" id="pendingTable">
+              <thead>
+                <tr><th>Customer</th><th>Vehicle</th><th>Plan</th><th>Requested</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="pendingBody"></tbody>
+            </table>
+          </div>
+          <div id="pendingEmpty" class="admin-panel-empty" style="display:none;">No pending requests right now.</div>
+        </div>
+      </div>
+
+      <div class="admin-panel">
+        <div class="admin-panel-header">
           <h2>New One-Time Bookings <span class="admin-panel-header-hint">Unpaid</span></h2>
         </div>
         <div class="admin-panel-body">
@@ -88,23 +105,6 @@
             </table>
           </div>
           <div id="todayBookingsEmpty" class="admin-panel-empty" style="display:none;">No bookings scheduled for today.</div>
-        </div>
-      </div>
-
-      <div class="admin-panel">
-        <div class="admin-panel-header">
-          <h2>Pending Maintenance Requests</h2>
-        </div>
-        <div class="admin-panel-body">
-          <div class="admin-table-wrap">
-            <table class="admin-table" id="pendingTable">
-              <thead>
-                <tr><th>Customer</th><th>Vehicle</th><th>Plan</th><th>Requested</th><th>Actions</th></tr>
-              </thead>
-              <tbody id="pendingBody"></tbody>
-            </table>
-          </div>
-          <div id="pendingEmpty" class="admin-panel-empty" style="display:none;">No pending requests right now.</div>
         </div>
       </div>
     </div>
