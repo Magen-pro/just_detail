@@ -10,6 +10,7 @@ async function init() {
 
   await Promise.all([
     loadSummaryCards(),
+    loadNewOneTimeBookings(),
     loadPendingVisits(),
     loadTodayBookings(),
     loadPendingRequests(),
@@ -133,6 +134,77 @@ async function loadPendingVisits() {
       updateVisitStatus(btn.dataset.cancelVisit, 'cancelled', btn, note);
     });
   });
+}
+
+async function loadNewOneTimeBookings() {
+  const { data, error } = await supabaseClient
+    .from('one_time_bookings')
+    .select('*, payments(id)')
+    .order('created_at', { ascending: false });
+
+  const tbody = document.getElementById('newOnetimeBody');
+  const emptyEl = document.getElementById('newOnetimeEmpty');
+  const tableEl = document.getElementById('newOnetimeTable');
+
+  // "New" = no payment recorded yet — matches the same needs-attention
+  // logic as pending visits/maintenance requests, just keyed on payment
+  // status instead of approval status.
+  const unpaid = (data || []).filter(b => !b.payments || b.payments.length === 0);
+
+  if (error || unpaid.length === 0) {
+    tableEl.style.display = 'none';
+    emptyEl.style.display = 'block';
+    return;
+  }
+
+  tableEl.style.display = 'table';
+  emptyEl.style.display = 'none';
+
+  tbody.innerHTML = unpaid.map(b => {
+    const amount = b.calculated_price ? Number(b.calculated_price) : null;
+    const actionHtml = amount
+      ? `<button class="btn btn-success btn-sm" data-confirm-onetime-payment="${b.id}" data-amount="${amount}">Confirm Payment</button>`
+      : `<a href="finances.html?pay_onetime=${b.id}" class="btn btn-outline btn-sm">Record Payment →</a>`;
+
+    return `
+      <tr>
+        <td>${b.customer_name}</td>
+        <td>${b.customer_phone}</td>
+        <td>${b.service}</td>
+        <td>${b.vehicle_model || '—'}${b.vehicle_type ? ' · ' + b.vehicle_type : ''}</td>
+        <td>${amount ? '₹' + amount.toLocaleString('en-IN') : '—'}</td>
+        <td>${formatDate(b.created_at)}</td>
+        <td>${actionHtml}</td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('[data-confirm-onetime-payment]').forEach(btn => {
+    btn.addEventListener('click', () => confirmOneTimePaymentFromDashboard(btn.dataset.confirmOnetimePayment, btn.dataset.amount, btn));
+  });
+}
+
+async function confirmOneTimePaymentFromDashboard(bookingId, amount, btnEl) {
+  btnEl.disabled = true;
+  btnEl.textContent = 'Confirming…';
+
+  const { error } = await supabaseClient.from('payments').insert({
+    one_time_booking_id: bookingId,
+    amount: Number(amount),
+    payment_method: 'cash',
+    payment_status: 'paid',
+    payment_date: toLocalDateStr(new Date()),
+  });
+
+  if (error) {
+    showToast('Failed to confirm payment: ' + error.message, 'error');
+    btnEl.disabled = false;
+    btnEl.textContent = 'Confirm Payment';
+    return;
+  }
+
+  showToast('Payment confirmed — added to revenue.');
+  await Promise.all([loadSummaryCards(), loadNewOneTimeBookings()]);
 }
 
 async function updateVisitStatus(bookingId, newStatus, btnEl, note) {
