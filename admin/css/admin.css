@@ -78,6 +78,26 @@ button { font-family: var(--font-body); }
 .admin-nav a:hover { background: rgba(255,255,255,0.06); color: var(--white); }
 .admin-nav a.active { background: var(--red); color: var(--white); }
 
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: auto;
+  background: var(--red);
+  color: var(--white);
+  font-size: 0.68rem;
+  font-weight: 800;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.admin-nav a.active .nav-badge {
+  background: var(--white);
+  color: var(--red);
+}
+
 .admin-sidebar-footer {
   padding: 16px 20px;
   border-top: 1px solid rgba(255,255,255,0.08);
@@ -680,4 +700,18 @@ button { font-family: var(--font-body); }
 }
 @media (hover: hover) {
   .payment-adjust-link:hover { color: var(--red); }
+}
+
+.admin-panel-header-hint {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9c6f00;
+  background: rgba(184,140,20,0.12);
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
 }
