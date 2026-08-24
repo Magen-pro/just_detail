@@ -1612,6 +1612,71 @@ h1, h2, h3, h4 {
   .gallery-tile-overlay { opacity: 1; }
 }
 
+/* ---------------- Before/After compare slider (first gallery tile) ---------------- */
+.gallery-tile-compare {
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y; /* let the page still scroll vertically; only the handle drags horizontally */
+}
+.ba-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+.ba-image-before {
+  clip-path: inset(0 50% 0 0); /* starts at 50/50 split */
+}
+.ba-label {
+  position: absolute;
+  top: 12px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--white);
+  background: rgba(13,13,13,0.55);
+  backdrop-filter: blur(4px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  z-index: 3;
+  pointer-events: none;
+}
+.ba-label-before { left: 12px; }
+.ba-label-after { right: 12px; }
+.ba-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.25);
+  transform: translateX(-50%);
+  z-index: 4;
+  cursor: ew-resize;
+  touch-action: none; /* the handle itself owns horizontal drag, no page scroll conflict */
+}
+.ba-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 40px; height: 40px;
+  background: var(--white);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  z-index: -1;
+}
+.ba-handle svg {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--black);
+  pointer-events: none;
+}
+
 @media (min-width: 860px) {
   .gallery { padding: 100px 0; }
 }
