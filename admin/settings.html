@@ -61,6 +61,53 @@
           </div>
         </div>
       </div>
+
+      <div class="admin-panel" style="margin-top:20px;">
+        <div class="admin-panel-header">
+          <h2>Blocked Dates</h2>
+        </div>
+        <div class="admin-form-section">
+          <p style="font-size:0.85rem; color:#6b6c70; margin-bottom:16px;">
+            Freeze a day (personal leave, holiday, etc.) — clients won't be able to book any service that day, on the website or their dashboard.
+          </p>
+          <form id="freezeDateForm" class="btn-row" style="align-items:flex-end; flex-wrap:wrap; margin-bottom:24px;">
+            <div class="admin-form-row" style="margin-bottom:0; min-width:220px;">
+              <label for="freezeDateTrigger">Date to freeze</label>
+              <div class="date-field" id="freezeDateField">
+                <button type="button" class="date-field-trigger" id="freezeDateTrigger" aria-haspopup="dialog" aria-expanded="false">
+                  <svg viewBox="0 0 20 20" fill="none" width="17" height="17"><rect x="3" y="4.5" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 8h14M7 3v3M13 3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  <span class="date-field-value is-placeholder" id="freezeDateValueText">Select a date</span>
+                </button>
+                <div class="custom-date-picker" id="freezeDatePicker">
+                  <div class="custom-date-picker-header">
+                    <button type="button" class="custom-date-nav" id="freezeDatePrev" aria-label="Previous month">‹</button>
+                    <span id="freezeDateMonthLabel"></span>
+                    <button type="button" class="custom-date-nav" id="freezeDateNext" aria-label="Next month">›</button>
+                  </div>
+                  <div class="custom-date-grid-labels">
+                    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                  </div>
+                  <div class="custom-date-grid" id="freezeDateGrid"></div>
+                </div>
+              </div>
+              <input type="hidden" id="freezeDate" required>
+            </div>
+            <div class="admin-form-row" style="margin-bottom:0; flex:1; min-width:200px;">
+              <label for="freezeReason">Reason <span style="font-weight:500; color:#9c9ca0;">(optional, for your own reference)</span></label>
+              <input type="text" id="freezeReason" placeholder="e.g. Personal leave">
+            </div>
+            <button type="submit" class="btn btn-primary" id="freezeSubmit">Freeze Date</button>
+          </form>
+
+          <div class="admin-table-wrap">
+            <table class="admin-table" id="blockedDatesTable">
+              <thead><tr><th>Date</th><th>Reason</th><th></th></tr></thead>
+              <tbody id="blockedDatesBody"></tbody>
+            </table>
+          </div>
+          <div id="blockedDatesEmpty" class="admin-panel-empty" style="display:none;">No dates currently frozen.</div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
