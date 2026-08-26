@@ -19,8 +19,20 @@ const TOTAL_STEPS = 4;
 let selectedDate = null;
 let selectedTime = null;
 let calendarViewDate = new Date();
+let monthAvailabilityCache = {}; // "YYYY-MM-DD" -> boolean (fully blocked or not), per rendered month
+let dateSlotAvailability = {}; // "8:00 AM" -> boolean, for the currently selected date
 
-const TIME_SLOTS = ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM'];
+function currentServiceType() {
+  const service = document.getElementById('mService').value;
+  return service === 'Deep Clean' ? 'deep_clean' : 'maintenance';
+}
+
+const DEEP_CLEAN_SLOTS = ['7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM'];
+const MAINTENANCE_SLOTS = ['7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM'];
+
+function slotsForCurrentService() {
+  return currentServiceType() === 'deep_clean' ? DEEP_CLEAN_SLOTS : MAINTENANCE_SLOTS;
+}
 
 function goToStep(step) {
   currentStep = step;
@@ -74,7 +86,7 @@ function validateStep(step) {
 }
 
 // ---------------- Calendar ----------------
-function renderCalendar() {
+async function renderCalendar() {
   const grid = document.getElementById('dateGrid');
   const label = document.getElementById('dateMonthLabel');
   const year = calendarViewDate.getFullYear();
@@ -91,6 +103,7 @@ function renderCalendar() {
   earliestSelectable.setDate(earliestSelectable.getDate() + 1);
 
   grid.innerHTML = '';
+  const cellDates = [];
   for (let i = 0; i < firstDay; i++) {
     grid.appendChild(document.createElement('span'));
   }
@@ -100,25 +113,109 @@ function renderCalendar() {
     btn.type = 'button';
     btn.textContent = d;
     btn.className = 'date-cell';
+    btn.dataset.dateStr = toLocalDateStr(cellDate);
+
     if (cellDate < earliestSelectable) {
       btn.disabled = true;
       btn.classList.add('date-cell-disabled');
     } else {
       btn.addEventListener('click', () => selectDate(cellDate, btn));
+      cellDates.push({ date: cellDate, btn });
     }
     if (selectedDate && cellDate.toDateString() === selectedDate.toDateString()) {
       btn.classList.add('date-cell-selected');
     }
     grid.appendChild(btn);
   }
+
+  // Check whole-day availability for every selectable date in this month,
+  // greying out fully-blocked ones (frozen days, or days with a Deep
+  // Clean already booked) so people can't even try to pick them.
+  const serviceType = currentServiceType();
+  await Promise.all(cellDates.map(async ({ date, btn }) => {
+    const dateStr = toLocalDateStr(date);
+    const blocked = await isDateFullyBlocked(dateStr, serviceType);
+    if (blocked) {
+      btn.disabled = true;
+      btn.classList.add('date-cell-disabled', 'date-cell-blocked');
+      btn.title = 'Fully booked or unavailable this day';
+    }
+  }));
 }
 
-function selectDate(date, btnEl) {
+async function isDateFullyBlocked(dateStr, serviceType) {
+  const cacheKey = `${dateStr}|${serviceType}`;
+  if (cacheKey in monthAvailabilityCache) return monthAvailabilityCache[cacheKey];
+
+  try {
+    const { data, error } = await supabaseClient.rpc('get_availability', {
+      check_date: dateStr,
+      service_type: serviceType,
+    });
+    if (error || !data) {
+      monthAvailabilityCache[cacheKey] = false; // fail open — don't block bookings if the check itself fails
+      return false;
+    }
+    const allBlocked = data.every(row => row.available === false);
+    monthAvailabilityCache[cacheKey] = allBlocked;
+    return allBlocked;
+  } catch (err) {
+    console.warn('Availability check failed, allowing date by default:', err);
+    monthAvailabilityCache[cacheKey] = false;
+    return false;
+  }
+}
+
+async function selectDate(date, btnEl) {
   selectedDate = date;
   document.getElementById('mDate').value = toLocalDateStr(date);
   document.querySelectorAll('.date-cell').forEach(c => c.classList.remove('date-cell-selected'));
   btnEl.classList.add('date-cell-selected');
   document.getElementById('datePicker').classList.remove('field-error');
+
+  // Reset any previously chosen time — it may not be valid for this date
+  selectedTime = null;
+  document.getElementById('mTime').value = '';
+  await renderTimeSlots();
+}
+
+async function renderTimeSlots() {
+  const timeGrid = document.getElementById('timeSlotGrid');
+  if (!timeGrid) return;
+
+  const slots = slotsForCurrentService();
+
+  if (!selectedDate) {
+    timeGrid.innerHTML = slots.map(t => `<button type="button" class="time-slot" data-time="${t}" disabled>${t}</button>`).join('');
+    return;
+  }
+
+  timeGrid.innerHTML = slots.map(t => `<button type="button" class="time-slot" data-time="${t}" disabled>…</button>`).join('');
+
+  const dateStr = toLocalDateStr(selectedDate);
+  const serviceType = currentServiceType();
+
+  try {
+    const { data, error } = await supabaseClient.rpc('get_availability', {
+      check_date: dateStr,
+      service_type: serviceType,
+    });
+
+    const availabilityMap = {};
+    if (!error && data) {
+      data.forEach(row => { availabilityMap[row.slot_time] = row.available; });
+    }
+
+    timeGrid.innerHTML = slots.map(t => {
+      // Fail open: if we couldn't determine availability, show it as
+      // bookable rather than silently blocking every slot.
+      const isAvailable = availabilityMap[t] !== false;
+      return `<button type="button" class="time-slot${isAvailable ? '' : ' time-slot-unavailable'}" data-time="${t}" ${isAvailable ? '' : 'disabled'}>${t}</button>`;
+    }).join('');
+  } catch (err) {
+    console.warn('Slot availability check failed, showing all slots as bookable:', err);
+    timeGrid.innerHTML = slots.map(t => `<button type="button" class="time-slot" data-time="${t}">${t}</button>`).join('');
+  }
 }
 
 // ---------------- Custom dropdowns ----------------
@@ -241,13 +338,15 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCalendar();
   });
 
-  // Time slots
+  // Time slots — dynamically rendered per selected date + service via
+  // renderTimeSlots(), not a static list. The click handler is delegated
+  // on the grid container so it works no matter how many times the
+  // buttons get re-rendered.
   const timeGrid = document.getElementById('timeSlotGrid');
   if (timeGrid) {
-    timeGrid.innerHTML = TIME_SLOTS.map(t => `<button type="button" class="time-slot" data-time="${t}">${t}</button>`).join('');
     timeGrid.addEventListener('click', (e) => {
       const btn = e.target.closest('.time-slot');
-      if (!btn) return;
+      if (!btn || btn.disabled) return;
       selectedTime = btn.dataset.time;
       document.getElementById('mTime').value = selectedTime;
       timeGrid.querySelectorAll('.time-slot').forEach(b => b.classList.remove('time-slot-selected'));
@@ -273,6 +372,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (vehicleTypeSelect) {
     vehicleTypeSelect.addEventListener('change', updateDeconPrice);
+  }
+
+  // Availability depends on which service is selected (Deep Clean vs
+  // Maintenance have different hours and blocking rules) — clear the
+  // cache and reset any already-picked date/time when it changes.
+  const serviceSelect = document.getElementById('mService');
+  if (serviceSelect) {
+    serviceSelect.addEventListener('change', () => {
+      monthAvailabilityCache = {};
+      selectedDate = null;
+      selectedTime = null;
+      document.getElementById('mDate').value = '';
+      document.getElementById('mTime').value = '';
+    });
   }
 
   // Service card "Book Now" -> scroll to form + prefill service, jump to step 1
@@ -305,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize on load
   goToStepSilent(1);
+  renderTimeSlots(); // shows disabled placeholders until a date is picked
 });
 
 // Same as goToStep but without scrolling (used on page load)
