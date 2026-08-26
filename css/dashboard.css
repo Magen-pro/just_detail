@@ -464,4 +464,25 @@
   .custom-date-cell:hover:not(:disabled) { background: var(--ivory); }
 }
 .custom-date-cell-disabled { color: #d0d0d0; cursor: not-allowed; }
+.custom-date-cell-blocked {
+  color: #c9c9cc;
+  text-decoration: line-through;
+}
+
+.custom-select-list li.option-disabled {
+  color: #c9c9cc;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.custom-select-list li.option-disabled:hover { background: none; }
+.option-disabled-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #b0b0b3;
+}
 .custom-date-cell-selected { background: var(--red) !important; color: var(--white) !important; }
