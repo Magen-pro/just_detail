@@ -112,29 +112,11 @@
         <label for="visitTime">Preferred time <span class="req">*</span></label>
         <div class="custom-select" id="visitTimeCustom" data-target="visitTime">
           <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
-            <span class="custom-select-value is-placeholder" data-placeholder="Select a time">Select a time</span>
+            <span class="custom-select-value is-placeholder" data-placeholder="Select a date first">Select a date first</span>
           </button>
-          <ul class="custom-select-list" role="listbox" tabindex="-1">
-            <li role="option" data-value="8:00 AM">8:00 AM</li>
-            <li role="option" data-value="9:00 AM">9:00 AM</li>
-            <li role="option" data-value="10:00 AM">10:00 AM</li>
-            <li role="option" data-value="11:00 AM">11:00 AM</li>
-            <li role="option" data-value="12:00 PM">12:00 PM</li>
-            <li role="option" data-value="1:00 PM">1:00 PM</li>
-            <li role="option" data-value="2:00 PM">2:00 PM</li>
-            <li role="option" data-value="3:00 PM">3:00 PM</li>
-            <li role="option" data-value="4:00 PM">4:00 PM</li>
-            <li role="option" data-value="5:00 PM">5:00 PM</li>
-            <li role="option" data-value="6:00 PM">6:00 PM</li>
-          </ul>
+          <ul class="custom-select-list" role="listbox" tabindex="-1"></ul>
         </div>
-        <select id="visitTime" required class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-          <option value="" disabled selected>Select a time</option>
-          <option>8:00 AM</option><option>9:00 AM</option><option>10:00 AM</option>
-          <option>11:00 AM</option><option>12:00 PM</option><option>1:00 PM</option>
-          <option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option>
-          <option>5:00 PM</option><option>6:00 PM</option>
-        </select>
+        <select id="visitTime" required class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
       </div>
       <button type="submit" class="btn btn-primary btn-block" id="visitSubmit">Request visit</button>
     </form>
