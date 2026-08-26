@@ -8,6 +8,7 @@ let currentClientRow = null;
 let currentSubscriptions = [];
 let visitSelectedDate = null;
 let visitCalendarViewDate = new Date();
+let visitMonthAvailabilityCache = {};
 
 // ---------------- Custom dropdown helpers (mirrors booking.js) ----------------
 
@@ -67,7 +68,9 @@ function initCustomSelect(wrap) {
   function wireOptions() {
     const options = Array.from(list.querySelectorAll('li'));
     options.forEach((li, idx) => {
-      li.setAttribute('tabindex', '-1');
+      const isDisabled = li.hasAttribute('aria-disabled');
+      li.setAttribute('tabindex', isDisabled ? '-1' : '-1');
+      if (isDisabled) return; // no click/keyboard selection for unavailable slots
       li.onclick = () => selectOption(li);
       li.onkeydown = (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectOption(li); }
@@ -86,17 +89,18 @@ function initCustomSelect(wrap) {
 }
 
 function populateCustomSelectList(wrap, items) {
-  // items: [{ value, label }]
+  // items: [{ value, label, disabled? }]
   const list = wrap.querySelector('.custom-select-list');
-  list.innerHTML = items.map(i => `<li role="option" data-value="${i.value}">${i.label}</li>`).join('');
+  list.innerHTML = items.map(i =>
+    `<li role="option" data-value="${i.value}"${i.disabled ? ' aria-disabled="true" class="option-disabled"' : ''}>${i.label}${i.disabled ? ' <span class="option-disabled-tag">Unavailable</span>' : ''}</li>`
+  ).join('');
 
-  // The hidden native <select> must also get matching <option> elements —
-  // otherwise setting its .value to a selected item silently fails (no
-  // matching option = value stays empty), which broke this exact form's
-  // native "required" validation even though the visible UI looked selected.
+  // The hidden native <select> only gets the SELECTABLE options — disabled
+  // ones are shown in the visible list for context but excluded here so
+  // they can never end up as the submitted value even by accident.
   const targetSelect = document.getElementById(wrap.dataset.target);
   if (targetSelect) {
-    targetSelect.innerHTML = items.map(i => `<option value="${i.value}">${i.label}</option>`).join('');
+    targetSelect.innerHTML = items.filter(i => !i.disabled).map(i => `<option value="${i.value}">${i.label}</option>`).join('');
     targetSelect.value = '';
   }
 
@@ -358,6 +362,9 @@ function openVisitModal(subscriptionId) {
   document.getElementById('visitModalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 
+  // Availability can change between visits to this modal — start fresh.
+  visitMonthAvailabilityCache = {};
+
   // Reset the date field back to its closed, unselected state
   visitSelectedDate = null;
   visitCalendarViewDate = new Date();
@@ -368,12 +375,14 @@ function openVisitModal(subscriptionId) {
   dateValueEl.classList.add('is-placeholder');
   renderVisitCalendar();
 
-  // Reset the time dropdown's visible state
+  // Time list is empty until a date is picked (see populateVisitTimeSlots)
   const timeWrap = document.getElementById('visitTimeCustom');
+  timeWrap.querySelector('.custom-select-list').innerHTML = '';
+  document.getElementById('visitTime').innerHTML = '';
   const timeValueEl = timeWrap.querySelector('.custom-select-value');
-  timeValueEl.textContent = timeValueEl.dataset.placeholder;
+  timeValueEl.dataset.placeholder = 'Select a date first';
+  timeValueEl.textContent = 'Select a date first';
   timeValueEl.classList.add('is-placeholder');
-  timeWrap.querySelectorAll('li').forEach(li => li.setAttribute('aria-selected', 'false'));
 }
 
 function toggleVisitDatePicker() {
@@ -397,7 +406,7 @@ function closeVisitDatePicker() {
   document.getElementById('visitDateTrigger').setAttribute('aria-expanded', 'false');
 }
 
-function renderVisitCalendar() {
+async function renderVisitCalendar() {
   const grid = document.getElementById('visitDateGrid');
   const label = document.getElementById('visitDateMonthLabel');
   const year = visitCalendarViewDate.getFullYear();
@@ -413,6 +422,7 @@ function renderVisitCalendar() {
   earliestSelectable.setDate(earliestSelectable.getDate() + 1);
 
   grid.innerHTML = '';
+  const cellDates = [];
   for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('span'));
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -426,15 +436,50 @@ function renderVisitCalendar() {
       btn.classList.add('custom-date-cell-disabled');
     } else {
       btn.addEventListener('click', () => selectVisitDate(cellDate, btn));
+      cellDates.push({ date: cellDate, btn });
     }
     if (visitSelectedDate && cellDate.toDateString() === visitSelectedDate.toDateString()) {
       btn.classList.add('custom-date-cell-selected');
     }
     grid.appendChild(btn);
   }
+
+  // Grey out any date that's fully blocked — manually frozen by the admin,
+  // or already has a Deep Clean booked (which takes the whole day).
+  await Promise.all(cellDates.map(async ({ date, btn }) => {
+    const dateStr = toLocalDateStr(date);
+    const blocked = await isVisitDateFullyBlocked(dateStr);
+    if (blocked) {
+      btn.disabled = true;
+      btn.classList.add('custom-date-cell-disabled', 'custom-date-cell-blocked');
+      btn.title = 'Fully booked or unavailable this day';
+    }
+  }));
 }
 
-function selectVisitDate(date, btnEl) {
+async function isVisitDateFullyBlocked(dateStr) {
+  if (dateStr in visitMonthAvailabilityCache) return visitMonthAvailabilityCache[dateStr];
+
+  try {
+    const { data, error } = await supabaseClient.rpc('get_availability', {
+      check_date: dateStr,
+      service_type: 'maintenance',
+    });
+    if (error || !data) {
+      visitMonthAvailabilityCache[dateStr] = false; // fail open
+      return false;
+    }
+    const allBlocked = data.every(row => row.available === false);
+    visitMonthAvailabilityCache[dateStr] = allBlocked;
+    return allBlocked;
+  } catch (err) {
+    console.warn('Availability check failed, allowing date by default:', err);
+    visitMonthAvailabilityCache[dateStr] = false;
+    return false;
+  }
+}
+
+async function selectVisitDate(date, btnEl) {
   visitSelectedDate = date;
   document.getElementById('visitDate').value = toLocalDateStr(date);
   document.querySelectorAll('#visitDateGrid .custom-date-cell').forEach(c => c.classList.remove('custom-date-cell-selected'));
@@ -445,6 +490,36 @@ function selectVisitDate(date, btnEl) {
   dateValueEl.classList.remove('is-placeholder');
 
   closeVisitDatePicker();
+  await populateVisitTimeSlots(date);
+}
+
+const VISIT_TIME_SLOTS = ['7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM','6:00 PM'];
+
+async function populateVisitTimeSlots(date) {
+  const wrap = document.getElementById('visitTimeCustom');
+  const dateStr = toLocalDateStr(date);
+
+  let availabilityMap = {};
+  try {
+    const { data, error } = await supabaseClient.rpc('get_availability', {
+      check_date: dateStr,
+      service_type: 'maintenance',
+    });
+    if (!error && data) {
+      data.forEach(row => { availabilityMap[row.slot_time] = row.available; });
+    }
+  } catch (err) {
+    console.warn('Slot availability check failed, showing all slots as bookable:', err);
+  }
+
+  const items = VISIT_TIME_SLOTS.map(t => ({
+    value: t,
+    label: t,
+    disabled: availabilityMap[t] === false,
+  }));
+
+  wrap.querySelector('.custom-select-value').dataset.placeholder = 'Select a time';
+  populateCustomSelectList(wrap, items);
 }
 
 function closeVisitModal() {
