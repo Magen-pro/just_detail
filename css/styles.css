@@ -1341,6 +1341,11 @@ h1, h2, h3, h4 {
   .date-cell:hover:not(:disabled) { background: var(--ivory); }
 }
 .date-cell-disabled { color: #d0d0d0; cursor: not-allowed; }
+.date-cell-blocked {
+  color: #c9c9cc;
+  text-decoration: line-through;
+  position: relative;
+}
 .date-cell-selected { background: var(--red) !important; color: var(--white) !important; }
 
 /* Time slots */
@@ -1369,6 +1374,13 @@ h1, h2, h3, h4 {
   .time-slot:hover { border-color: var(--red); }
 }
 .time-slot-selected { background: var(--red); border-color: var(--red); color: var(--white); }
+.time-slot-unavailable {
+  background: rgba(13,13,13,0.03);
+  color: #c9c9cc;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+.time-slot:disabled { cursor: not-allowed; opacity: 0.6; }
 
 /* Review step */
 .review-intro { font-size: 0.88rem; color: #6b6c70; margin-bottom: 18px; line-height: 1.5; }
